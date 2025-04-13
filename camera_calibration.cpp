@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 {
 	std::vector<cv::Mat> images;
 	cv::Mat buffer;
-	cv::VideoCapture camVideoCapture("./chess.mp4");
+	cv::VideoCapture camVideoCapture("./chessboard-720.mp4");
 
 	int key = 0;
 	bool ret = 0;
@@ -37,81 +37,60 @@ int main(int argc, char** argv)
 
 	while (camVideoCapture.isOpened() == true)
 	{
-		camVideoCapture >> buffer;
-		key = cv::pollKey() & 0xFF;
+		ret = camVideoCapture.read(buffer);
 
-		images.push_back(buffer);
-
-		if (images.empty() == false)
+		if (ret == false)
 		{
-			camVideoCapture.release();
 			break;
 		}
-
-		switch (key)
+		else
 		{
-		case F_ASCII:
-		case f_ASCII:
-			g_isFlipped ^= true;
-			break;
-
-		case SPACE_ASCII:
-			g_isRecorded ^= true;
-			break;
-
-		case ESC_ASCII:
-			camVideoCapture.release();
-			break;
+			images.push_back(buffer);
 		}
-
-		if (g_isFlipped == true)
-		{
-			cv::flip(buffer, buffer, 1);
-		}
-
-		cv::imshow("record", buffer);
-		cv::waitKey();
-		cv::destroyAllWindows();
-
-		std::vector<std::vector<cv::Point2f>> _2dPoints;
-		std::vector<cv::Point2f> pointBuffer;
-
-		for (auto& x : images)
-		{
-			if (cv::findChessboardCorners(x, { BOARD_WIDTH, BOARD_HEIGHT }, pointBuffer) == true)
-			{
-				_2dPoints.push_back(pointBuffer);
-			}
-
-			pointBuffer.clear();
-		}
-
-		if (_2dPoints.empty() == true)
-		{
-			__debugbreak();
-		}
-
-		std::vector<std::vector<cv::Point3f>> _3dPoints;
-		_3dPoints.push_back(std::vector<cv::Point3f>());
-
-		for (size_t i = 0; i < BOARD_HEIGHT; i++)
-		{
-			for (size_t j = 0; j < BOARD_WIDTH; j++)
-			{
-				_3dPoints[0].push_back({ BOARD_CELL_SIZE * j, BOARD_CELL_SIZE * i, 0 });
-			}
-		}
-
-		_3dPoints.resize(images.size(), _3dPoints[0]);
-
-		cv::Mat view = cv::Mat::eye(3, 3, CV_64F);
-		cv::Mat distanceCoefficient = cv::Mat::zeros(4, 1, CV_64F);
-		std::vector<cv::Mat> rvecs, tvecs;
-
-		double rms = cv::calibrateCamera(_3dPoints, _2dPoints, images[0].size(), view, distanceCoefficient, rvecs, tvecs);
-
-		std::cout << "RMS ERROR: " << rms << std::endl;
-		std::cout << "Distortion coefficient (k1, k2, p1, p2, k3 ...): " << distanceCoefficient.t() << std::endl;
-
-		return 0;
 	}
+
+	cv::destroyAllWindows();
+
+	std::vector<std::vector<cv::Point2f>> _2dPoints;
+	std::vector<cv::Point2f> pointBuffer;
+
+	for (auto& x : images)
+	{
+		if (cv::findChessboardCorners(x, { BOARD_WIDTH, BOARD_HEIGHT }, pointBuffer) == true)
+		{
+			_2dPoints.push_back(pointBuffer);
+		}
+
+		pointBuffer.clear();
+	}
+
+	if (_2dPoints.empty() == true)
+	{
+		__debugbreak();
+	}
+
+	std::vector<std::vector<cv::Point3f>> _3dPoints;
+	_3dPoints.push_back(std::vector<cv::Point3f>());
+
+	for (size_t i = 0; i < BOARD_HEIGHT; i++)
+	{
+		for (size_t j = 0; j < BOARD_WIDTH; j++)
+		{
+			_3dPoints[0].push_back({ BOARD_CELL_SIZE * j, BOARD_CELL_SIZE * i, 0 });
+		}
+	}
+
+	_3dPoints.resize(images.size(), _3dPoints[0]);
+
+	cv::Mat view = cv::Mat::eye(3, 3, CV_64F);
+	cv::Mat distanceCoefficient = cv::Mat::zeros(4, 1, CV_64F);
+	std::vector<cv::Mat> rvecs, tvecs;
+
+	double rms = cv::calibrateCamera(_3dPoints, _2dPoints, images[0].size(), view, distanceCoefficient, rvecs, tvecs);
+
+	std::cout << "RMS ERROR: " << rms << std::endl;
+	std::cout << "* Camera matrix (K) = " << std::endl << "  " << view.row(0) << view.row(1) << view.row(2) << std::endl;
+	std::cout << "Distortion coefficient (k1, k2, p1, p2, k3 ...): " << distanceCoefficient.t() << std::endl;
+
+	return 0;
+}
